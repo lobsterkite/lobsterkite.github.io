@@ -502,11 +502,19 @@ function createScene()
 	var loader = new THREE.FontLoader();
 	loader.load('font/mars_type.json', function (mars_type) {
 	  font = mars_type;
-	  var geometry = new THREE.TextGeometry(text, {
+	  var textGeo = new THREE.TextGeometry(text, {
 	    font: font,
 	    size: 80,
 	    height: 5,
 	  });
+	  var textMat = new THREE.MeshLambertMaterial({color: 0xFF00FF});
+
+    	var textMesh = new THREE.Mesh(textGeo, textMat);
+
+    	scene.add(textMesh);
+
+
+
 	});
 
 }
