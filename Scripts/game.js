@@ -1,10 +1,3 @@
-
-// --------------------------------------------- //
-// ------- 3D PONG built with Three.JS --------- //
-// -------- Created by Nikhil Suresh ----------- //
-// -------- Three.JS is by Mr. doob  ----------- //
-// --------------------------------------------- //
-
 // ------------------------------------- //
 // ------- GLOBAL VARIABLES ------------ //
 // ------------------------------------- //
@@ -507,7 +500,7 @@ function createScene()
 	var font;
 	var text = "Hello World"
 	var loader = new THREE.FontLoader();
-	loader.load('fonts/mars_type.json', function (mars_type) {
+	loader.load('font/mars_type.json', function (mars_type) {
 	  font = mars_type;
 	  var geometry = new THREE.TextGeometry(text, {
 	    font: font,
