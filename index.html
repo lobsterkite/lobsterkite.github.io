@@ -1,30 +1,43 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Game</title>
+		<title>Tech Trash Sim</title>
 		<style>
 			body {
 				background-color: black;
+				overflow: hidden;
 			}
 			#gameCanvas {
 				background-color: black;
 				margin: auto;
-				align: center;
-			}
-			#scoreboard {
-				text-align: center;
-				font-family: Segoe UI, Helvetica, Ubuntu, sans-serif;
-				color: white;
-			}
-			#scores {
-				font-size:600%; 
-				padding:0; 
-				margin:0;
-				color: white;
 			}
 			#title {
 				background-color: white;
 				color: black;
+			}
+			#prompts, #prompts-helper,#instructions{
+				position: absolute;
+				width: 50vw;
+				height: 50vh;
+				text-align: center;
+				color:white;
+				top:25vh;
+				left:25vw;
+				font-size: 30px;
+				font-weight: bold;
+				text-shadow: -1px 1px 0 #000,
+				  1px 1px 0 #000,
+				 1px -1px 0 #000,
+				-1px -1px 0 #000;
+			}
+			#instrList{
+				list-style: none;
+			}
+			#prompts-helper{
+				top:15vh;
+			}
+			#prompts, #prompts-helper{
+				font-size:50px;
 			}
 		</style>
 	</head>
@@ -33,12 +46,20 @@
 		<script src='./Scripts/three.min.js'></script>
 		<script src='./Scripts/keyboard.js'></script>
 		<script src='./Scripts/game.js'></script>
-		<!--<div id='scoreboard'>
-			<h1 id='scores'>0-0</h1>
-			<h1 id='title'>3D PONG</h1>
-			<h2 id='winnerBoard'>First to 7 wins!</h2>
-			<h3>A - move left
-			<br>D - move right</h3>
-		</div>-->
+		<div id='text'>
+			<div id='instructions'>The green cylinders are obviouly goblin techies, raid stack is in purple, and you are the blue thing.  <br />Our faithful paladin in pink will charge at the techies once you give the command.  After that, the techies should converge upon him at which point you must help out by timing your bomb to align with everyone else's - Go on 0.<br /> 
+				<ul id='instrList'><li>Spacebar - begin</li>
+					<li>W - move forward</li>
+					<li>A - move left</li>
+					<li>S - backpeddle</li>
+					<li>D - move right</li>
+					<li>Click - begin throwing bomb</li>
+					<li>Refresh - restart</li>
+				</ul>
+				The recticle gets funky after moving the char around, just move it a bit and it'll self correct.
+			</div>
+			<div id='prompts-helper' style='display:none;'>GET READY</div>
+			<div id='prompts' style='display:none;'></div>
+		</div>
 	</body>
 </html>

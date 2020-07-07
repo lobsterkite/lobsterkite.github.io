@@ -9,9 +9,10 @@ let NPC_SPEED = 0.01;
 let GRENADE_CAST = 1.0;
 let GRENADE_MOVE_DELAY = 0.5;
 let GRENADE_RANGE = 130;
+let COUNTDOWN_START=5;
 
 // scene object variables
-var renderer, scene, camera, pointLight, spotLight, c;
+var renderer, scene, camera, pointLight, spotLight, c, instrText,prompts, canvas,canvasPosition,boundingRec, begun=false, ended=false;
 //materials
 var raiderMaterial, goblinMaterial, pallyMaterial, pallyBubbleMaterial;
 
@@ -19,23 +20,12 @@ var raiderMaterial, goblinMaterial, pallyMaterial, pallyBubbleMaterial;
 // field variables
 var fieldWidth = 500, fieldHeight = 250;
 
-// paddle variables
-var paddleWidth, paddleHeight, paddleDepth, paddleQuality;
-var paddle1DirY = 0, paddle1DirX = 0, paddle2DirY = 0, paddleSpeed = 4;
+var player, playerMaterial, playerSpeed = 4, mouseRectical;
 
-var paddle1Material;
+var mouseVec = new THREE.Vector3();
 
 var bombMaterial, explosionMaterial;
 var bombSpeed = 3;
-
-// ball variables
-var ball, paddle1, paddle2;
-var ballDirX = 1, ballDirY = 1, ballSpeed = 2;
-
-// game-related variables
-var score1 = 0, score2 = 0;
-// you can change this to any positive whole number
-var maxScore = 7;
 
 //this is the point where the paladin goes to stand and then enemies converge
 
@@ -57,15 +47,10 @@ var enemies = [];
 var grenades = [];
 var raiders = [];
 var pally;
-
+var engageTimer = 0.0, countdown=COUNTDOWN_START;
 //var grenade, grenadePath;
 //var velocity = new THREE.Vector3(0, .25, -.15);
 var clock = new THREE.Clock();
-
-var matrix = new THREE.Matrix4();
-var up = new THREE.Vector3( -1, 1, 1 );
-var axis = new THREE.Vector3( );
-var pt, radians, axis, tangent;
 
 function getMidwayPoint(pointA, pointB, pct) {
     
@@ -293,6 +278,25 @@ class Grenade{
 // ------- GAME FUNCTIONS -------------- //
 // ------------------------------------- //
 
+function onMouseMove(event){
+	/*var rect = renderer.domElement.getBoundingClientRect();
+	mouse.x = ( ( event.clientX - rect.left ) / rect.width ) * 2 - 1;
+	 mouse.y = - ( ( event.clientY - rect.top ) / rect.height ) * 2 + 1;
+	console.log(mouse);*/
+	mouseVec.set(
+	    ( event.clientX / window.innerWidth ) * 2 - 1,
+	    - ( event.clientY / window.innerHeight ) * 2 + 1,
+	    0 );
+
+	mouseVec.unproject( camera );
+
+	mouseVec.sub( camera.position ).normalize();
+
+	var distance = - camera.position.z / mouseVec.z;
+	mouseRectical.position.copy( camera.position ).add( mouseVec.multiplyScalar( distance ) );
+	mouseRectical.position.setZ(5);
+}
+
 function setup()
 {	
 	// set up all the 3D objects in the scene	
@@ -327,9 +331,6 @@ function createScene()
 		FAR);
 
 	scene = new THREE.Scene();
-
-	// add the camera to the scene
-	//scene.add(camera);
 	
 	// set a default position for the camera
 	// not doing this somehow messes up shadow rendering
@@ -340,82 +341,36 @@ function createScene()
 
 	// attach the render-supplied DOM element
 	c.appendChild(renderer.domElement);
-
+	document.addEventListener("mousemove", onMouseMove, false);
 	raiderMaterial =
 	  new THREE.MeshLambertMaterial(
 		{
 		  color: 0x4E2EEE
 		});
 
-	// create the paddle1's material
-	paddle1Material =
-	  new THREE.MeshLambertMaterial(
-		{
-		  color: 0x1B32C0
-		});
-	pallyBubbleMaterial = 
-	new THREE.MeshLambertMaterial(
-		{
-		  color: 0xFAFAEB,
-		  opacity: 0.1,
-		  transparent: true
-		});
-	// create the pillar's material
-	goblinMaterial =
-	  new THREE.MeshLambertMaterial(
-		{
-		  color: 0x008000
-		});
-	pallyMaterial =
-	  new THREE.MeshLambertMaterial(
-		{
-		  color: 0xF58CBA
-		});
-
+	// create the player's material
+	playerMaterial =new THREE.MeshLambertMaterial({color: 0x1B32C0});
+	pallyBubbleMaterial = new THREE.MeshLambertMaterial({
+		color: 0xFAFAEB, 
+		opacity: 0.1,
+		transparent: true
+	});
+	goblinMaterial = new THREE.MeshLambertMaterial({ color: 0x008000});
+	pallyMaterial = new THREE.MeshLambertMaterial({ color: 0xF58CBA});
 	// create the ground's material
-	var groundMaterial =
-	  new THREE.MeshLambertMaterial(
-		{
-		  color: 0x888888
-		});
+	var groundMaterial = new THREE.MeshLambertMaterial({color: 0x888888});
 		
-	// // create the sphere's material
-	var sphereMaterial =
-	  new THREE.MeshLambertMaterial(
-		{
-		  color: 0xD43001
-		});
-	
-	// // set up the paddle vars
-	paddleWidth = 10;
-	paddleHeight = 30;
-	paddleDepth = 10;
-	paddleQuality = 1;
 		
-	paddle1 = new THREE.Mesh(
-
-	  new THREE.CubeGeometry(
-		paddleWidth,
-		paddleHeight,
-		paddleDepth,
-		paddleQuality,
-		paddleQuality,
-		paddleQuality),
-
-	  paddle1Material);
-
-	// // add the sphere to the scene
-	scene.add(paddle1);
-	paddle1.receiveShadow = true;
-    paddle1.castShadow = true;
+	player = new THREE.Mesh(new THREE.CubeGeometry(	15,	15,	15,1,1,	1),	  playerMaterial);
+	scene.add(player);
+	player.receiveShadow = true;
+    player.castShadow = true;
 	
 	// set paddles on each side of the table
-	paddle1.position.x = -fieldWidth/2 + paddleWidth;
+	player.position.x = -100;
 	
-	// lift paddles over playing surface
-	paddle1.position.z = paddleDepth;
-
-	//scene.add(new THREE.GridHelper(1000, 1000));	
+	// lift player over playing surface
+	player.position.z = 5;
 	
 	// iterate to create techies
 	for (var i = 0; i < numEnemies; i++)
@@ -496,36 +451,40 @@ function createScene()
 		  color: 0xFFAA00
 		});
 
-	var loader = new THREE.FontLoader();
-	var font;
-	var text = "Hello World"
-	var loader = new THREE.FontLoader();
-	loader.load('font/mars_type.json', function (mars_type) {
-	  font = mars_type;
-	  var textGeo = new THREE.TextGeometry(text, {
-	    font: font,
-	    size: 80,
-	    height: 5,
-	  });
-	  var textMat = new THREE.MeshLambertMaterial({color: 0xFF00FF});
-
-    	var textMesh = new THREE.Mesh(textGeo, textMat);
-
-    	scene.add(textMesh);
 
 
+	var mouseMaterial = new THREE.MeshBasicMaterial( {color: 0xFF0000} );
+	mouseRectical = new THREE.Mesh(new THREE.TorusGeometry(20, 1,8,25), mouseMaterial);
+	mouseRectical.position.z=-50;  //start below
+	mouseRectical.position.x=0;
+	mouseRectical.position.y=0;
 
-	});
+	mouseRectical.rotateZ(Math.PI*.5);
+	//mouseRectical.rotateX(Math.PI*.5);
+	//mouseRectical.rotateY(Math.PI*.5);
+	scene.add(mouseRectical);
+
+	prompts = document.getElementById('prompts');
+	promptsHelper = document.getElementById('prompts-helper');
+	instrText = document.getElementById('instructions');
 
 }
-
+function hideText(){
+	prompts.style.display='none';
+	promptsHelper.style.display='none';
+	instrText.style.display='none';
+}
+function updatePromptText(text){
+	prompts.style.display='block';
+	promptsHelper.style.display='block';
+	prompts.innerText=text;
+}
 function doScene(){
+	if(!begun || ended){
+		return;
+	}
 	let delta = clock.getDelta();
 	let paladinMoving = pally.pulled();
-	if(Key.isDown(Key.SPACE)){
-		//move paladin, once there initiate "aggro"
-		paladinMoving = pally.doMovement();
-	}
 	
 	if(paladinMoving){
 		pally.doMovement();
@@ -553,8 +512,36 @@ function doScene(){
 			}
 		}
 		if(!enemiesMoving){
-			//now the FUN can start
-			//let ctx = c.getContext('2d');
+			//now the FUN can start - start timer
+			//only the first time
+			if(countdown==5){
+				updatePromptText(countdown);
+			}
+			engageTimer+=delta;
+			if(engageTimer>1){
+				engageTimer=0;
+				countdown-=1;
+				if(countdown>=0){
+					updatePromptText(countdown);
+				}
+				else{
+					hideText();
+				}
+			}
+			if(countdown==0){
+				for (var raider of raiders){
+					let waiting = raider.stuckWaiting(delta);
+					if(!waiting){
+						raider.doMovement();
+					}
+					if(!raider.thrownGrenade() && raider.grenadeable()){
+						//throw grenade
+						let newGrenade = new Grenade(raider.getPos(), convergencePoint);
+						grenades.push(newGrenade);
+						raider.thrownGrenade(true);
+					}
+				}
+			}
 		}
 
 		//handle projectile paths and remove them if they reach their destination (returned true)
@@ -585,159 +572,6 @@ function draw()
 }
 
 
-
-function createGrenades(origin, destination){
-	grenade = new THREE.Mesh(new THREE.CylinderGeometry(2,2,6,5),bombMaterial);
-	grenade.position.copy(origin);
-	scene.add(grenade);
-	//figure out midpoint of paddle and grenade
-	//grenadePath;
-	let midPoint = getMidwayPoint(destination, grenade.position, 0.5);
-	//add some elevation
-	midPoint.z+=50
-	//let midPoint2 = getMidwayPoint(paddle2.position, midPoint1, 0.5);
-	grenadePath = new THREE.QuadraticBezierCurve3(
-		new THREE.Vector3(grenade.position.x, grenade.position.y, grenade.position.z), 
-		new THREE.Vector3(midPoint.x, midPoint.y, midPoint.z),
-		new THREE.Vector3(destination.x, destination.y, destination.z)
-	);
-
-
-    var material = new THREE.LineBasicMaterial({
-        color: 0xff00f0,
-    });
-	var geometry = new THREE.Geometry();
-    for(var i = 0; i < grenadePath.getPoints(100).length; i++){
-        geometry.vertices.push(grenadePath.getPoints(100)[i]);  
-    }
-    //grenade.setRotationFromEuler(new THREE.Euler(0.9, 0.1, 1.5));
-    //grenade.rotateOnAxis(up, 2.8);
-    var line = new THREE.Line(geometry, material);
-    scene.add(line);
-
-}
-/*
-class grenade{
-	constructor(origin, destination){
-		//create the grenade
-		var grenade = new THREE.Mesh(new THREE.CylinderGeometry(2,2,6,5),bombMaterial);
-		//launch the grenade, making it spin and stuff woooooo
-		grenade.position = origin.position;
-
-
-		//trajectory stuff
-		let p_x = grenade.position.x;
-		let p_y = grenade.position.y;
-		let p_z = grenade.position.z;
-
-
-
-		var sphereMaterial =
-	  new THREE.MeshLambertMaterial(
-		{
-		  color: 0xD43001
-		});
-		
-	// Create a ball with sphere geometry
-	ball = new THREE.Mesh(
-
-	  new THREE.SphereGeometry(
-		radius,
-		segments,
-		rings),
-
-	  sphereMaterial);
-	}
-} 
-*/
-
-function ballPhysics()
-{
-	// if ball goes off the 'left' side (Player's side)
-	if (ball.position.x <= -fieldWidth/2)
-	{	
-		// CPU scores
-		score2++;
-		// update scoreboard HTML
-		document.getElementById("scores").innerHTML = score1 + "-" + score2;
-		// reset ball to center
-		resetBall(2);
-		matchScoreCheck();	
-	}
-	
-	// if ball goes off the 'right' side (CPU's side)
-	if (ball.position.x >= fieldWidth/2)
-	{	
-		// Player scores
-		score1++;
-		// update scoreboard HTML
-		document.getElementById("scores").innerHTML = score1 + "-" + score2;
-		// reset ball to center
-		resetBall(1);
-		matchScoreCheck();	
-	}
-	
-	// if ball goes off the top side (side of table)
-	if (ball.position.y <= -fieldHeight/2)
-	{
-		ballDirY = -ballDirY;
-	}	
-	// if ball goes off the bottom side (side of table)
-	if (ball.position.y >= fieldHeight/2)
-	{
-		ballDirY = -ballDirY;
-	}
-	
-	// update ball position over time
-	ball.position.x += ballDirX * ballSpeed;
-	ball.position.y += ballDirY * ballSpeed;
-	
-	// limit ball's y-speed to 2x the x-speed
-	// this is so the ball doesn't speed from left to right super fast
-	// keeps game playable for humans
-	if (ballDirY > ballSpeed * 2)
-	{
-		ballDirY = ballSpeed * 2;
-	}
-	else if (ballDirY < -ballSpeed * 2)
-	{
-		ballDirY = -ballSpeed * 2;
-	}
-}
-
-// Handles CPU paddle movement and logic
-function opponentPaddleMovement()
-{
-	// Lerp towards the ball on the y plane
-	paddle2DirY = (ball.position.y - paddle2.position.y) * difficulty;
-	
-	// in case the Lerp function produces a value above max paddle speed, we clamp it
-	if (Math.abs(paddle2DirY) <= paddleSpeed)
-	{	
-		paddle2.position.y += paddle2DirY;
-	}
-	// if the lerp value is too high, we have to limit speed to paddleSpeed
-	else
-	{
-		// if paddle is lerping in +ve direction
-		if (paddle2DirY > paddleSpeed)
-		{
-			paddle2.position.y += paddleSpeed;
-		}
-		// if paddle is lerping in -ve direction
-		else if (paddle2DirY < -paddleSpeed)
-		{
-			paddle2.position.y -= paddleSpeed;
-		}
-	}
-	// We lerp the scale back to 1
-	// this is done because we stretch the paddle at some points
-	// stretching is done when paddle touches side of table and when paddle hits ball
-	// by doing this here, we ensure paddle always comes back to default size
-	paddle2.scale.y += (1 - paddle2.scale.y) * 0.2;	
-}
-
-
 // Handles player's paddle movement
 function handleKeyInput()
 {
@@ -746,16 +580,16 @@ function handleKeyInput()
 	{
 		// if paddle is not touching the side of table
 		// we move
-		if (paddle1.position.y < fieldHeight * 0.45)
+		if (player.position.y < fieldHeight * 0.45)
 		{
-			paddle1DirY = paddleSpeed * 0.5;
+			playerDirY = playerSpeed * 0.5;
 		}
 		// else we don't move and stretch the paddle
 		// to indicate we can't move
 		else
 		{
-			paddle1DirY = 0;
-			paddle1.scale.z += (10 - paddle1.scale.z) * 0.2;
+			playerDirY = 0;
+			player.scale.z += (10 - player.scale.z) * 0.2;
 		}
 	}	
 	// move right
@@ -763,32 +597,32 @@ function handleKeyInput()
 	{
 		// if paddle is not touching the side of table
 		// we move
-		if (paddle1.position.y > -fieldHeight * 0.45)
+		if (player.position.y > -fieldHeight * 0.45)
 		{
-			paddle1DirY = -paddleSpeed * 0.5;
+			playerDirY = -playerSpeed * 0.5;
 		}
 		// else we don't move and stretch the paddle
 		// to indicate we can't move
 		else
 		{
-			paddle1DirY = 0;
-			paddle1.scale.z += (10 - paddle1.scale.z) * 0.2;
+			playerDirY = 0;
+			player.scale.z += (10 - player.scale.z) * 0.2;
 		}
 	}
 	else if (Key.isDown(Key.W))		
 	{
 		// if paddle is not touching the side of table
 		// we move
-		if (paddle1.position.x < fieldWidth * 0.45)
+		if (player.position.x < fieldWidth * 0.45)
 		{
-			paddle1DirX = paddleSpeed * 0.5;
+			playerDirX = playerSpeed * 0.5;
 		}
 		// else we don't move and stretch the paddle
 		// to indicate we can't move
 		else
 		{
-			paddle1DirX = 0;
-			paddle1.scale.z += (10 - paddle1.scale.z) * 0.2;
+			playerDirX = 0;
+			player.scale.z += (10 - player.scale.z) * 0.2;
 		}
 	}	
 	// move right
@@ -796,184 +630,59 @@ function handleKeyInput()
 	{
 		// if paddle is not touching the side of table
 		// we move
-		if (paddle1.position.x > -fieldWidth * 0.45)
+		if (player.position.x > -fieldWidth * 0.45)
 		{
-			paddle1DirX = -paddleSpeed * 0.5;
+			playerDirX = -playerSpeed * 0.5;
 		}
 		// else we don't move and stretch the paddle
 		// to indicate we can't move
 		else
 		{
-			paddle1DirX = 0;
-			paddle1.scale.z += (10 - paddle1.scale.z) * 0.2;
+			playerDirX = 0;
+			player.scale.z += (10 - player.scale.z) * 0.2;
 		}
-	}/*
+	}
 	else if (Key.isDown(Key.SPACE))
 	{
-		// if paddle is not touching the side of table
-		// we move
-		if (paddle1.position.x > -fieldWidth * 0.45)
-		{
-			paddle1DirX = -paddleSpeed * 0.5;
-		}
-		// else we don't move and stretch the paddle
-		// to indicate we can't move
-		else
-		{
-			paddle1DirX = 0;
-			paddle1.scale.z += (10 - paddle1.scale.z) * 0.2;
-		}
+		begun=true;
+		hideText();
+		pally.doMovement();
+	}
+/*	else if (Key.isDown(Key.G))
+	{
+		//player.
 	}*/
-	// else don't move paddle
 	else
 	{
 		// stop the paddle
-		paddle1DirX = 0;
-		paddle1DirY = 0;
+		playerDirX = 0;
+		playerDirY = 0;
 	}
 	
-	paddle1.scale.y += (1 - paddle1.scale.y) * 0.2;	
-	paddle1.scale.z += (1 - paddle1.scale.z) * 0.2;	
-	paddle1.position.y += paddle1DirY;
-	paddle1.position.x += paddle1DirX;
-	//console.log(paddle1.position);
+	player.scale.y += (1 - player.scale.y) * 0.2;	
+	player.scale.z += (1 - player.scale.z) * 0.2;	
+	player.position.y += playerDirY;
+	player.position.x += playerDirX;
+	//console.log(player.position);
 }
 
 // Handles camera and lighting logic
 function cameraPhysics()
 {
 	// we can easily notice shadows if we dynamically move lights during the game
-	//spotLight.position.x = paddle1.position.x;
-	//spotLight.position.y = paddle1.position.y;
+	//spotLight.position.x = player.position.x;
+	//spotLight.position.y = player.position.y;
 	
 	// move to behind the player's paddle
-	camera.position.x = paddle1.position.x - 100;
-	camera.position.y += (paddle1.position.y - camera.position.y) * 0.05;
-	camera.position.z = paddle1.position.z + 100 + 0.04 * paddle1.position.x;
+	camera.position.x = player.position.x - 100;
+	camera.position.y += (player.position.y - camera.position.y) * 0.05;
+	camera.position.z = player.position.z + 100 + 0.04 * player.position.x;
 	
 
 
 
-	// rotate to face towards the opponent
+	//rotate to face towards the techies
 	camera.rotation.x = -0.01 * Math.PI/180;
 	camera.rotation.y = -60 * Math.PI/180;
 	camera.rotation.z = -90 * Math.PI/180;
-}
-
-// Handles paddle collision logic
-function paddlePhysics()
-{
-	// PLAYER PADDLE LOGIC
-	
-	// if ball is aligned with paddle1 on x plane
-	// remember the position is the CENTER of the object
-	// we only check between the front and the middle of the paddle (one-way collision)
-	if (ball.position.x <= paddle1.position.x + paddleWidth
-	&&  ball.position.x >= paddle1.position.x)
-	{
-		// and if ball is aligned with paddle1 on y plane
-		if (ball.position.y <= paddle1.position.y + paddleHeight/2
-		&&  ball.position.y >= paddle1.position.y - paddleHeight/2)
-		{
-			// and if ball is travelling towards player (-ve direction)
-			if (ballDirX < 0)
-			{
-				// stretch the paddle to indicate a hit
-				paddle1.scale.y = 15;
-				// switch direction of ball travel to create bounce
-				ballDirX = -ballDirX;
-				// we impact ball angle when hitting it
-				// this is not realistic physics, just spices up the gameplay
-				// allows you to 'slice' the ball to beat the opponent
-				ballDirY -= paddle1DirY * 0.7;
-			}
-		}
-	}
-	
-	// OPPONENT PADDLE LOGIC	
-	
-	// if ball is aligned with paddle2 on x plane
-	// remember the position is the CENTER of the object
-	// we only check between the front and the middle of the paddle (one-way collision)
-	if (ball.position.x <= paddle2.position.x + paddleWidth
-	&&  ball.position.x >= paddle2.position.x)
-	{
-		// and if ball is aligned with paddle2 on y plane
-		if (ball.position.y <= paddle2.position.y + paddleHeight/2
-		&&  ball.position.y >= paddle2.position.y - paddleHeight/2)
-		{
-			// and if ball is travelling towards opponent (+ve direction)
-			if (ballDirX > 0)
-			{
-				// stretch the paddle to indicate a hit
-				paddle2.scale.y = 15;	
-				// switch direction of ball travel to create bounce
-				ballDirX = -ballDirX;
-				// we impact ball angle when hitting it
-				// this is not realistic physics, just spices up the gameplay
-				// allows you to 'slice' the ball to beat the opponent
-				ballDirY -= paddle2DirY * 0.7;
-			}
-		}
-	}
-}
-
-function resetBall(loser)
-{
-	// position the ball in the center of the table
-	ball.position.x = 0;
-	ball.position.y = 0;
-	paddle1Material.color = new THREE.Color(0xffffff);
-	paddle1Material.emissive = new THREE.Color(0xbb99ff);
-	paddle1Material.needsUpdate = true;
-
-	// if player lost the last point, we send the ball to opponent
-	if (loser == 1)
-	{
-		ballDirX = -1;
-	}
-	// else if opponent lost, we send ball to player
-	else
-	{
-		ballDirX = 1;
-	}
-	
-	// set the ball to move +ve in y plane (towards left from the camera)
-	ballDirY = 1;
-}
-
-var bounceTime = 0;
-// checks if either player or opponent has reached 7 points
-function matchScoreCheck()
-{
-	// if player has 7 points
-	if (score1 >= maxScore)
-	{
-		// stop the ball
-		ballSpeed = 0;
-		// write to the banner
-		document.getElementById("scores").innerHTML = "Player wins!";		
-		document.getElementById("winnerBoard").innerHTML = "Refresh to play again";
-		// make paddle bounce up and down
-		bounceTime++;
-		paddle1.position.z = Math.sin(bounceTime * 0.1) * 10;
-		// enlarge and squish paddle to emulate joy
-		paddle1.scale.z = 2 + Math.abs(Math.sin(bounceTime * 0.1)) * 10;
-		paddle1.scale.y = 2 + Math.abs(Math.sin(bounceTime * 0.05)) * 10;
-	}
-	// else if opponent has 7 points
-	else if (score2 >= maxScore)
-	{
-		// stop the ball
-		ballSpeed = 0;
-		// write to the banner
-		document.getElementById("scores").innerHTML = "CPU wins!";
-		document.getElementById("winnerBoard").innerHTML = "Refresh to play again";
-		// make paddle bounce up and down
-		bounceTime++;
-		paddle2.position.z = Math.sin(bounceTime * 0.1) * 10;
-		// enlarge and squish paddle to emulate joy
-		paddle2.scale.z = 2 + Math.abs(Math.sin(bounceTime * 0.1)) * 10;
-		paddle2.scale.y = 2 + Math.abs(Math.sin(bounceTime * 0.05)) * 10;
-	}
 }
