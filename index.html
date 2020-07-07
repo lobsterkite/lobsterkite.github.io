@@ -15,7 +15,7 @@
 				background-color: white;
 				color: black;
 			}
-			#prompts, #prompts-helper,#instructions{
+			#prompts, #prompts-helper,#results, #results-helper,#instructions{
 				position: absolute;
 				width: 50vw;
 				height: 50vh;
@@ -33,10 +33,10 @@
 			#instrList{
 				list-style: none;
 			}
-			#prompts-helper{
+			#prompts-helper, #results-helper{
 				top:15vh;
 			}
-			#prompts, #prompts-helper{
+			#prompts, #prompts-helper, #results, #results-helper{
 				font-size:50px;
 			}
 		</style>
@@ -56,10 +56,12 @@
 					<li>Click - begin throwing bomb</li>
 					<li>Refresh - restart</li>
 				</ul>
-				The recticle gets funky after moving the char around, just move it a bit and it'll self correct.
+				The recticle gets funky after moving the char around, just move it a bit and it'll self correct.  It simply needs to be green when you click.
 			</div>
 			<div id='prompts-helper' style='display:none;'>GET READY</div>
 			<div id='prompts' style='display:none;'></div>
+			<div id='results-helper' style='display:none;'></div>
+			<div id='results' style='display:none;'></div>
 		</div>
 	</body>
 </html>

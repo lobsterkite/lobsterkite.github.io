@@ -1,6 +1,3 @@
-// ------------------------------------- //
-// ------- GLOBAL VARIABLES ------------ //
-// ------------------------------------- //
 //control/debug
 let DRAW_PATHS = true;
 let IDEAL_VEL = 0.0195;
@@ -9,16 +6,17 @@ let NPC_SPEED = 0.01;
 let GRENADE_CAST = 1.0;
 let GRENADE_MOVE_DELAY = 0.5;
 let GRENADE_RANGE = 130;
+let PLAYER_GRENADE_RANGE = 175;
 let COUNTDOWN_START=5;
-
+let CLICK_WINDOW = .40; //batching 
 // scene object variables
 var renderer, scene, camera, pointLight, spotLight, c, instrText,prompts, canvas,canvasPosition,boundingRec, begun=false, ended=false;
 //materials
-var raiderMaterial, goblinMaterial, pallyMaterial, pallyBubbleMaterial;
+var raiderMaterial, goblinMaterial, pallyMaterial, pallyBubbleMaterial,mouseMaterialBad,mouseMaterialGood;
 
 
 // field variables
-var fieldWidth = 500, fieldHeight = 250;
+var fieldWidth = 500, fieldHeight = 350;
 
 var player, playerMaterial, playerSpeed = 4, mouseRectical;
 
@@ -47,7 +45,7 @@ var enemies = [];
 var grenades = [];
 var raiders = [];
 var pally;
-var engageTimer = 0.0, countdown=COUNTDOWN_START;
+var engageTimer = 0.0, countdown=COUNTDOWN_START, clickWindowElapsed=0.0;
 //var grenade, grenadePath;
 //var velocity = new THREE.Vector3(0, .25, -.15);
 var clock = new THREE.Clock();
@@ -87,6 +85,7 @@ class Character{
 		this.castingTimeEllapsed=0.0;
 		this.grenadeTimeEllapsed=0.0; //wait to move for a second after grenading
 		this.inGrenadeRange  =false;
+		this.maxGrenadeRange = GRENADE_RANGE;
 
 		let cylinder = new THREE.CylinderGeometry( charRadius, charRadius, charHeight,6,1);
 		cylinder.rotateZ(Math.PI*.5);
@@ -98,6 +97,11 @@ class Character{
 				break;
 			case "raider":
 				char = new THREE.Mesh(cylinder,raiderMaterial);
+				//just for some variation change range for raiders
+				this.maxGrenadeRange = Math.floor(getRandInRange(GRENADE_RANGE*1.25, GRENADE_RANGE*0.5));
+				break;
+			case "player":
+				char = new THREE.Mesh(new THREE.CubeGeometry(15,	15,	15,1,1,	1),	  playerMaterial);
 				break;
 			default:
 				//techies
@@ -136,7 +140,7 @@ class Character{
 		return this.grenaded;
 	}
 	grenadeable(){
-		if(this.self.position.distanceTo(convergencePoint)<=GRENADE_RANGE){
+		if(this.self.position.distanceTo(convergencePoint)<=this.maxGrenadeRange){
 			this.casting=true;
 			return true;
 		}
@@ -215,7 +219,6 @@ class Grenade{
 		grenade.position.copy(origin);
 		scene.add(grenade);
 		this.grenade = grenade;
-		//figure out midpoint of paddle and grenade
 		//grenadePath;
 		let midPoint = getMidwayPoint(destination, grenade.position, 0.5);
 		//add some elevation
@@ -297,6 +300,26 @@ function onMouseMove(event){
 	mouseRectical.position.setZ(5);
 }
 
+function onMouseClick(event){
+	//check timers and if the recticle is green - that's literally it
+	if(begun && !ended){
+		hideText();
+		let playerDistance = player.self.position.distanceTo(convergencePoint);
+		let clickedTooFast = (clickWindowElapsed==0);
+		let clickedtooLate = (clickWindowElapsed>CLICK_WINDOW);
+		if(playerDistance<PLAYER_GRENADE_RANGE){
+			//now check timer...
+			if(clickWindowElapsed<=CLICK_WINDOW){
+				setWinState();
+				return;
+			}
+		}
+		let newGrenade = new Grenade(player.self.position.clone(), convergencePoint);
+		grenades.push(newGrenade);
+		setFailState(clickedTooFast, clickedtooLate);
+	}
+}
+
 function setup()
 {	
 	// set up all the 3D objects in the scene	
@@ -342,6 +365,7 @@ function createScene()
 	// attach the render-supplied DOM element
 	c.appendChild(renderer.domElement);
 	document.addEventListener("mousemove", onMouseMove, false);
+	document.addEventListener("mousedown", onMouseClick, false);
 	raiderMaterial =
 	  new THREE.MeshLambertMaterial(
 		{
@@ -361,16 +385,15 @@ function createScene()
 	var groundMaterial = new THREE.MeshLambertMaterial({color: 0x888888});
 		
 		
-	player = new THREE.Mesh(new THREE.CubeGeometry(	15,	15,	15,1,1,	1),	  playerMaterial);
-	scene.add(player);
-	player.receiveShadow = true;
-    player.castShadow = true;
+	player = new Character(raiderStartPoint, "player");
+	//scene.add(player);
+	player.self.receiveShadow = true;
+    player.self.castShadow = true;
 	
-	// set paddles on each side of the table
-	player.position.x = -100;
+	player.self.position.x = -100;
 	
 	// lift player over playing surface
-	player.position.z = 5;
+	player.self.position.z = 5;
 	
 	// iterate to create techies
 	for (var i = 0; i < numEnemies; i++)
@@ -453,8 +476,9 @@ function createScene()
 
 
 
-	var mouseMaterial = new THREE.MeshBasicMaterial( {color: 0xFF0000} );
-	mouseRectical = new THREE.Mesh(new THREE.TorusGeometry(20, 1,8,25), mouseMaterial);
+	mouseMaterialBad = new THREE.MeshBasicMaterial( {color: 0xFF0000} );
+	mouseMaterialGood = new THREE.MeshBasicMaterial( {color: 0x008000} );
+	mouseRectical = new THREE.Mesh(new THREE.TorusGeometry(20, 1,8,25), mouseMaterialBad);
 	mouseRectical.position.z=-50;  //start below
 	mouseRectical.position.x=0;
 	mouseRectical.position.y=0;
@@ -467,23 +491,81 @@ function createScene()
 	prompts = document.getElementById('prompts');
 	promptsHelper = document.getElementById('prompts-helper');
 	instrText = document.getElementById('instructions');
+	resultsHelper = document.getElementById('results-helper');
+	results = document.getElementById('results');
 
 }
 function hideText(){
 	prompts.style.display='none';
 	promptsHelper.style.display='none';
 	instrText.style.display='none';
+	results.style.display='none';
+	resultsHelper.style.display='none';
 }
 function updatePromptText(text){
 	prompts.style.display='block';
 	promptsHelper.style.display='block';
 	prompts.innerText=text;
 }
+
+function setFailState(fast, slow){
+	let hahaFunnyStuff = ["Get good", "Don't try to blame the sim, it's pristine","Better hope we didn't wipe","You suck", "Loot banned", "Congrats you're gonna get raged on", "Try again", "Better luck next DMF"];
+	let hahaFunnies = hahaFunnyStuff.length;
+	let responseIdx = Math.floor(getRandInRange(0, hahaFunnies-1));
+	results.style.display='block';
+	resultsHelper.style.display='block';
+	if(!!fast && fast){
+		resultsHelper.innerText = 'Failure - way too fast';
+	}
+	else if(!!slow && slow){
+		resultsHelper.innerText = 'Failure - way too fast';
+	}
+	else{
+		resultsHelper.innerText='Failure - recticle will turn green if you are within range';
+	}
+	results.innerText=hahaFunnyStuff[responseIdx];
+	ended=true;
+}
+
+function setWinState(){
+	let hahaFunnyStuff = ["Ideal raider","You've unlocked an additional mechanic", "Several more packs to go don't get ahead of yourself", "GG", "Achievement unlocked: "];
+	let hahaFunnies = hahaFunnyStuff.length;
+	let responseIdx = Math.floor(getRandInRange(0, hahaFunnies-1));
+	results.style.display='block';
+	resultsHelper.style.display='block';
+	resultsHelper.innerText='Success!';
+	results.innerText=hahaFunnyStuff[responseIdx];
+	ended=true;
+}
+
 function doScene(){
-	if(!begun || ended){
+		let delta = clock.getDelta();
+	if(!begun){
 		return;
 	}
-	let delta = clock.getDelta();
+	else if(ended){
+		//still handle projectiles and movement till they're done for fun
+		let i = grenades.length || 0;
+		while (i--){
+			let ret = grenades[i].updateTrajectory(delta);
+			if(!ret){
+				grenades.splice(i,1);
+			}
+		}
+		for (var raider of raiders){
+			let waiting = raider.stuckWaiting(delta);
+			if(!waiting){
+				raider.doMovement();
+			}
+		}
+		for (var enemy of enemies){
+			let waiting = enemy.stuckWaiting(delta);
+			if(!waiting){
+				enemy.doMovement();
+			}
+		}
+		return;
+	}
 	let paladinMoving = pally.pulled();
 	
 	if(paladinMoving){
@@ -525,10 +607,15 @@ function doScene(){
 					updatePromptText(countdown);
 				}
 				else{
-					hideText();
+					updatePromptText(" GOOOO!!!!!");
 				}
 			}
 			if(countdown==0){
+				clickWindowElapsed+=delta;
+				if(clickWindowElapsed>CLICK_WINDOW){
+					ended=true;
+					setFailState();
+				}
 				for (var raider of raiders){
 					let waiting = raider.stuckWaiting(delta);
 					if(!waiting){
@@ -558,127 +645,103 @@ function doScene(){
 
 function draw()
 {	
-	// draw THREE.JS scene
 	renderer.render(scene, camera);
-	// loop draw function call
 	requestAnimationFrame(draw);
+	
 	doScene();
-	//grenadeTrajectory();
-	//ballPhysics();
-	//paddlePhysics();
 	cameraPhysics();
-	handleKeyInput();
-	//opponentPaddleMovement();
+	handleControlInput();
 }
 
 
-// Handles player's paddle movement
-function handleKeyInput()
+function handleControlInput()
 {
 	// move left
 	if (Key.isDown(Key.A))		
 	{
-		// if paddle is not touching the side of table
-		// we move
-		if (player.position.y < fieldHeight * 0.45)
+		if (player.self.position.y < fieldHeight * 0.45)
 		{
 			playerDirY = playerSpeed * 0.5;
 		}
-		// else we don't move and stretch the paddle
-		// to indicate we can't move
 		else
 		{
 			playerDirY = 0;
-			player.scale.z += (10 - player.scale.z) * 0.2;
+			player.self.scale.z += (10 - player.self.scale.z) * 0.2;
 		}
 	}	
 	// move right
 	else if (Key.isDown(Key.D))
 	{
-		// if paddle is not touching the side of table
-		// we move
-		if (player.position.y > -fieldHeight * 0.45)
+		if (player.self.position.y > -fieldHeight * 0.45)
 		{
 			playerDirY = -playerSpeed * 0.5;
 		}
-		// else we don't move and stretch the paddle
-		// to indicate we can't move
 		else
 		{
 			playerDirY = 0;
-			player.scale.z += (10 - player.scale.z) * 0.2;
+			player.self.scale.z += (10 - player.self.scale.z) * 0.2;
 		}
 	}
 	else if (Key.isDown(Key.W))		
 	{
-		// if paddle is not touching the side of table
-		// we move
-		if (player.position.x < fieldWidth * 0.45)
+		if (player.self.position.x < fieldWidth * 0.45)
 		{
 			playerDirX = playerSpeed * 0.5;
 		}
-		// else we don't move and stretch the paddle
-		// to indicate we can't move
 		else
 		{
 			playerDirX = 0;
-			player.scale.z += (10 - player.scale.z) * 0.2;
+			player.self.scale.z += (10 - player.self.scale.z) * 0.2;
 		}
 	}	
 	// move right
 	else if (Key.isDown(Key.S))
 	{
-		// if paddle is not touching the side of table
-		// we move
-		if (player.position.x > -fieldWidth * 0.45)
+		if (player.self.position.x > -fieldWidth * 0.45)
 		{
 			playerDirX = -playerSpeed * 0.5;
 		}
-		// else we don't move and stretch the paddle
-		// to indicate we can't move
 		else
 		{
 			playerDirX = 0;
-			player.scale.z += (10 - player.scale.z) * 0.2;
+			player.self.scale.z += (10 - player.self.scale.z) * 0.2;
 		}
 	}
 	else if (Key.isDown(Key.SPACE))
 	{
-		begun=true;
-		hideText();
-		pally.doMovement();
+		if(!begun){
+			begun=true;
+			hideText();
+			pally.doMovement();
+		}
 	}
-/*	else if (Key.isDown(Key.G))
-	{
-		//player.
-	}*/
 	else
 	{
-		// stop the paddle
 		playerDirX = 0;
 		playerDirY = 0;
 	}
 	
-	player.scale.y += (1 - player.scale.y) * 0.2;	
-	player.scale.z += (1 - player.scale.z) * 0.2;	
-	player.position.y += playerDirY;
-	player.position.x += playerDirX;
-	//console.log(player.position);
+	player.self.scale.y += (1 - player.self.scale.y) * 0.2;	
+	player.self.scale.z += (1 - player.self.scale.z) * 0.2;	
+	player.self.position.y += playerDirY;
+	player.self.position.x += playerDirX;
+	//console.log(player.self.position);
+	//check player range to update material color (in range or not)
+	let mouseDistance = player.self.position.distanceTo(convergencePoint);
+	if(mouseDistance<PLAYER_GRENADE_RANGE){
+		mouseRectical.material = mouseMaterialGood;
+	}
+	else{
+		mouseRectical.material = mouseMaterialBad;
+	}
 }
 
 // Handles camera and lighting logic
 function cameraPhysics()
 {
-	// we can easily notice shadows if we dynamically move lights during the game
-	//spotLight.position.x = player.position.x;
-	//spotLight.position.y = player.position.y;
-	
-	// move to behind the player's paddle
-	camera.position.x = player.position.x - 100;
-	camera.position.y += (player.position.y - camera.position.y) * 0.05;
-	camera.position.z = player.position.z + 100 + 0.04 * player.position.x;
-	
-
+	camera.position.x = player.self.position.x - 100;
+	camera.position.y += (player.self.position.y - camera.position.y) * 0.05;
+	camera.position.z = player.self.position.z + 100 + 0.04 * player.self.position.x;
 
 
 	//rotate to face towards the techies
