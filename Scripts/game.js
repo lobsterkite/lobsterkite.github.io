@@ -344,6 +344,9 @@ function onMouseClick(event){
 		let playerDistance = player.self.position.distanceTo(convergencePoint);
 		let clickedTooFast = (clickWindowElapsed==0);
 		let clickedtooLate = (clickWindowElapsed>CLICK_WINDOW);
+		let newGrenade = new Grenade(player.self.position.clone(), convergencePoint);
+		grenades.push(newGrenade);
+
 		if(playerDistance<PLAYER_GRENADE_RANGE){
 			//now check timer...
 			if(clickWindowElapsed<=CLICK_WINDOW){
@@ -351,8 +354,6 @@ function onMouseClick(event){
 				return;
 			}
 		}
-		let newGrenade = new Grenade(player.self.position.clone(), convergencePoint);
-		grenades.push(newGrenade);
 		setFailState(clickedTooFast, clickedtooLate);
 	}
 }
