@@ -6,6 +6,7 @@ let NPC_SPEED = 0.01;
 let GRENADE_CAST = 1.0;
 let GRENADE_MOVE_DELAY = 0.5;
 let GRENADE_RANGE = 130;
+let GRENADE_CD = 2;
 let PLAYER_GRENADE_RANGE = 175;
 let COUNTDOWN_START=5;
 let CLICK_WINDOW = .40; //batching 
@@ -49,6 +50,29 @@ var engageTimer = 0.0, countdown=COUNTDOWN_START, clickWindowElapsed=0.0;
 //var grenade, grenadePath;
 //var velocity = new THREE.Vector3(0, .25, -.15);
 var clock = new THREE.Clock();
+
+var Key = {
+  _pressed: {},
+
+  A: 65,
+  W: 87,
+  D: 68,
+  S: 83,
+  G: 71,
+  SPACE: 32,
+  
+  isDown: function(keyCode) {
+    return this._pressed[keyCode];
+  },
+  
+  onKeydown: function(event) {
+    this._pressed[event.keyCode] = true;
+  },
+  
+  onKeyup: function(event) {
+    delete this._pressed[event.keyCode];
+  }
+};
 
 function getMidwayPoint(pointA, pointB, pct) {
     
@@ -163,6 +187,10 @@ class Character{
 			this.castingTimeEllapsed+=increment;
 			doCheck=true;
 		}
+		if(this.grenadeTimeEllapsed>=GRENADE_CD && this.disposition=="enemy"){
+			this.resetGrenadeCD();
+		}
+
 		if(doCheck){
 			if(this.grenadeTimeEllapsed>GRENADE_MOVE_DELAY && this.castingTimeEllapsed>GRENADE_CAST){
 				return false;
@@ -170,6 +198,12 @@ class Character{
 			return true;
 		}
 		return false;
+	}
+	resetGrenadeCD(){
+		this.grenaded=false;
+		this.casting=false;
+		this.castingTimeEllapsed=0.0;
+		this.grenadeTimeEllapsed=0.0; //wait to move for a second after grenading
 	}
 	doMovement(increment){
 		if(!this.moving && !this.atDest){
@@ -188,6 +222,9 @@ class Character{
 		  		//reached destination, done moving (false=not moving)
 		 		this.atDest=true;
 		 		this.moving=false;
+		 		//let them grenade again
+		 		this.resetGrenadeCD();
+
 		  		return false;
   			}
   			this.t=t;
@@ -366,6 +403,10 @@ function createScene()
 	c.appendChild(renderer.domElement);
 	document.addEventListener("mousemove", onMouseMove, false);
 	document.addEventListener("mousedown", onMouseClick, false);
+	//movement
+	window.addEventListener('keyup', function(event) { Key.onKeyup(event); }, false);
+	window.addEventListener('keydown', function(event) { Key.onKeydown(event); }, false);
+
 	raiderMaterial =
 	  new THREE.MeshLambertMaterial(
 		{
@@ -509,6 +550,7 @@ function updatePromptText(text){
 }
 
 function setFailState(fast, slow){
+	hideText();
 	let hahaFunnyStuff = ["Get good", "Don't try to blame the sim, it's pristine","Better hope we didn't wipe","You suck", "Loot banned", "Congrats you're gonna get raged on", "Try again", "Better luck next DMF"];
 	let hahaFunnies = hahaFunnyStuff.length;
 	let responseIdx = Math.floor(getRandInRange(0, hahaFunnies-1));
@@ -557,6 +599,12 @@ function doScene(){
 			if(!waiting){
 				raider.doMovement();
 			}
+			if(!raider.thrownGrenade() && raider.grenadeable()){
+				//throw grenade
+				let newGrenade = new Grenade(raider.getPos(), convergencePoint);
+				grenades.push(newGrenade);
+				raider.thrownGrenade(true);
+			}
 		}
 		for (var enemy of enemies){
 			let waiting = enemy.stuckWaiting(delta);
@@ -591,6 +639,20 @@ function doScene(){
 					enemy.thrownGrenade(true);
 				}
 				enemiesMoving=true;
+			}
+			else{
+				let waiting = enemy.stuckWaiting(delta);
+				if(!waiting){
+					enemy.doMovement();
+				}
+				let grenadeThrown=false;
+				if(!enemy.thrownGrenade() && enemy.grenadeable()){
+					grenadeThrown=true;
+					//throw grenade
+					let newGrenade = new Grenade(enemy.getPos(), convergencePoint);
+					grenades.push(newGrenade);
+					enemy.thrownGrenade(true);
+				}
 			}
 		}
 		if(!enemiesMoving){
